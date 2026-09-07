@@ -74,6 +74,17 @@ def split_indices(
     indices = list(range(len(recordings)))
     conditions = [r.condition_id for r in recordings]
 
+    # Stratification needs at least one recording per class in every split.
+    n_classes = len(set(conditions))
+    smallest = min(val, test) * len(recordings)
+    if smallest < n_classes:
+        raise ValueError(
+            f"{len(recordings)} recordings is too few to stratify {n_classes} "
+            f"classes across these ratios: the smallest split would hold "
+            f"{smallest:.1f}. Generate at least "
+            f"{int(np.ceil(n_classes / min(val, test)))} recordings."
+        )
+
     train_val, test_idx = train_test_split(
         indices, test_size=test, stratify=conditions, random_state=seed
     )
