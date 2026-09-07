@@ -28,6 +28,9 @@ include = ["neuropace*"]
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+# docs/ holds design and plan records; their embedded snippets are history,
+# not source, and should not be rewritten by the formatter.
+exclude = ["docs", "app", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
