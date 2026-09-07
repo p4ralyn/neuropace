@@ -17,16 +17,16 @@ neuropace.train  ──▶  artifacts/model.keras  ──▶  neuropace.api  ◀
 
 | Path | Responsibility | TensorFlow |
 |---|---|---|
-| `src/neuropace/config.py` | Label vocabulary, bands, electrodes, windowing geometry | no |
-| `src/neuropace/synthetic.py` | Signal generation per condition, stress level, mood | no |
-| `src/neuropace/dataset.py` | Recordings, windowing, stratified splits | no |
-| `src/neuropace/features.py` | Band powers and spectral features | no |
-| `src/neuropace/baselines.py` | XGBoost reference model | no |
-| `src/neuropace/data.py` | `tf.data` input pipeline | yes |
-| `src/neuropace/models.py` | CNN, LSTM, and hybrid architectures | yes |
-| `src/neuropace/train.py` | Training CLI, seeding, run manifest | yes |
-| `src/neuropace/evaluate.py` | Per-head metrics and confusion matrices | yes |
-| `src/neuropace/api.py` | Inference service | lazily |
+| `neuropace/config.py` | Label vocabulary, bands, electrodes, windowing geometry | no |
+| `neuropace/synthetic.py` | Signal generation per condition, stress level, mood | no |
+| `neuropace/dataset.py` | Recordings, windowing, stratified splits | no |
+| `neuropace/features.py` | Band powers and spectral features | no |
+| `neuropace/baselines.py` | XGBoost reference model | no |
+| `neuropace/data.py` | `tf.data` input pipeline | yes |
+| `neuropace/models.py` | CNN, LSTM, and hybrid architectures | yes |
+| `neuropace/train.py` | Training CLI, seeding, run manifest | yes |
+| `neuropace/evaluate.py` | Per-head metrics and confusion matrices | yes |
+| `neuropace/api.py` | Inference service | lazily |
 | `app/` | Expo client | — |
 | `deploy/` | Dockerfile for the service | — |
 

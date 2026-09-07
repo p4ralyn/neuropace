@@ -4,7 +4,7 @@ WORKDIR /srv
 
 # Install the package first so its layer caches independently of the source.
 COPY pyproject.toml README.md ./
-COPY src ./src
+COPY neuropace ./neuropace
 RUN pip install --no-cache-dir ".[api,train]"
 
 # Cloud Run and friends inject PORT; default to 8080 locally.
