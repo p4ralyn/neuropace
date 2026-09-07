@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+neuropace/__init__.py
+neuropace/config.py
+neuropace.egg-info/PKG-INFO
+neuropace.egg-info/SOURCES.txt
+neuropace.egg-info/dependency_links.txt
+neuropace.egg-info/entry_points.txt
+neuropace.egg-info/requires.txt
+neuropace.egg-info/top_level.txt
+tests/test_config.py
