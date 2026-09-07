@@ -10,24 +10,25 @@ anywhere in this project — the generator produces signals whose ground truth i
 known exactly, which is what makes the pipeline measurable.
 
 ```
-neuropace/  ──trains──▶  artifacts/model.keras  ──serves──▶  api/  ◀──reads──  app/
+neuropace.train  ──▶  artifacts/model.keras  ──▶  neuropace.api  ◀──  app/
 ```
 
 ## Layout
 
 | Path | Responsibility | TensorFlow |
 |---|---|---|
-| `neuropace/config.py` | Label vocabulary, bands, electrodes, windowing geometry | no |
-| `neuropace/synthetic.py` | Signal generation per condition, stress level, mood | no |
-| `neuropace/dataset.py` | Recordings, windowing, stratified splits | no |
-| `neuropace/features.py` | Band powers and spectral features | no |
-| `neuropace/baselines.py` | XGBoost reference model | no |
-| `neuropace/data.py` | `tf.data` input pipeline | yes |
-| `neuropace/models.py` | CNN, LSTM, and hybrid architectures | yes |
-| `neuropace/train.py` | Training CLI, seeding, run manifest | yes |
-| `neuropace/evaluate.py` | Per-head metrics and confusion matrices | yes |
-| `api/main.py` | Inference service | lazily |
+| `src/neuropace/config.py` | Label vocabulary, bands, electrodes, windowing geometry | no |
+| `src/neuropace/synthetic.py` | Signal generation per condition, stress level, mood | no |
+| `src/neuropace/dataset.py` | Recordings, windowing, stratified splits | no |
+| `src/neuropace/features.py` | Band powers and spectral features | no |
+| `src/neuropace/baselines.py` | XGBoost reference model | no |
+| `src/neuropace/data.py` | `tf.data` input pipeline | yes |
+| `src/neuropace/models.py` | CNN, LSTM, and hybrid architectures | yes |
+| `src/neuropace/train.py` | Training CLI, seeding, run manifest | yes |
+| `src/neuropace/evaluate.py` | Per-head metrics and confusion matrices | yes |
+| `src/neuropace/api.py` | Inference service | lazily |
 | `app/` | Expo client | — |
+| `deploy/` | Dockerfile for the service | — |
 
 The TensorFlow-free column is a deliberate boundary, not an accident. Everything
 above the line is array work, so most of the suite runs without importing TF:
@@ -58,7 +59,7 @@ Train, evaluate, serve:
 ```sh
 .venv/bin/python -m neuropace.train --epochs 50 --recordings-per-condition 50
 .venv/bin/python -m neuropace.evaluate
-.venv/bin/uvicorn api.main:app --port 8080
+.venv/bin/uvicorn neuropace.api:app --port 8080
 ```
 
 Compare against the classical baseline:
@@ -130,6 +131,11 @@ Three more that mattered:
   drift apart and return confidently mislabelled predictions. They are imported
   now, and `GET /labels` serves them to the client.
 
+The service used to live in a loose `api/` directory outside the package, which
+forced the tests to splice it onto `sys.path` before importing it. It is
+`neuropace.api` now: one installable unit, no path manipulation, and the
+Dockerfile installs the package rather than copying loose files.
+
 ## Tests
 
 ```sh
@@ -141,8 +147,3 @@ The suite pins behaviour to properties rather than golden values: a 10Hz tone
 must land in the alpha band and a 2Hz tone in delta; one epoch must cover every
 window exactly once; the confusion-matrix diagonal must reproduce the reported
 accuracy; the API must answer with and without a model on disk.
-
-## Design records
-
-`docs/superpowers/specs/` holds the design for this work and
-`docs/superpowers/plans/` the implementation plan it was built from.

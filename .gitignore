@@ -26,5 +26,9 @@ artifacts/
 *.keras
 *.h5
 
-# Environments
-.venv/
+# Build and tool caches
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/

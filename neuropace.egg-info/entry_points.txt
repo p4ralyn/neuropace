@@ -1,3 +1,0 @@
-[console_scripts]
-neuropace-eval = neuropace.evaluate:main
-neuropace-train = neuropace.train:main

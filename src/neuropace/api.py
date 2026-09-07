@@ -1,5 +1,7 @@
 """NeuroPace inference service.
 
+Run it with: uvicorn neuropace.api:app
+
 Serves the multi-head model trained by `python -m neuropace.train`: one EEG
 window in, three labelled predictions out.
 
@@ -19,12 +21,7 @@ import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from neuropace.config import (
-    AILMENT_CLASSES,
-    MOOD_STATES,
-    STRESS_LEVELS,
-    EEGConfig,
-)
+from .config import AILMENT_CLASSES, MOOD_STATES, STRESS_LEVELS, EEGConfig
 
 MODEL_PATH = Path(os.environ.get("NEUROPACE_MODEL", "artifacts/model.keras"))
 TRAIN_HINT = "python -m neuropace.train"
