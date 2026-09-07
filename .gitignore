@@ -20,3 +20,11 @@ npm-debug.*
 *.db
 logs/
 checkpoints/
+
+# Build outputs -- models, metrics, plots. Never commit these.
+artifacts/
+*.keras
+*.h5
+
+# Environments
+.venv/
