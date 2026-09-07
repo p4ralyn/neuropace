@@ -1,5 +1,7 @@
-fastapi
-uvicorn[standard]
-tensorflow
-numpy
-pydantic
+# Runtime dependencies for the inference service.
+# The package itself provides the label vocabulary and config:
+#   pip install -e ..[api]
+fastapi>=0.115
+uvicorn[standard]>=0.30
+tensorflow>=2.19
+numpy>=2.0
