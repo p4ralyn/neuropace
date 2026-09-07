@@ -32,9 +32,8 @@ neuropace.train  ──▶  artifacts/model.keras  ──▶  neuropace.api  ◀
 
 The TensorFlow-free column is a deliberate boundary, not an accident. Everything
 above the line is array work, so most of the suite runs without importing TF:
-**13 tests in 0.75s**, against 6s for all 36. CI runs the fast job first, so a
-regression in the signal generator reports in seconds instead of waiting on a
-TensorFlow install.
+**13 tests in 0.75s**, against 6s for all 36, so a regression in the signal
+generator surfaces without waiting on a TensorFlow import.
 
 ## The model
 
@@ -141,6 +140,14 @@ Dockerfile installs the package rather than copying loose files.
 ```sh
 .venv/bin/python -m pytest -v          # 36 tests
 .venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .
+```
+
+The fast subset, which needs no TensorFlow:
+
+```sh
+.venv/bin/python -m pytest tests/test_config.py tests/test_dataset.py \
+                          tests/test_features.py
 ```
 
 The suite pins behaviour to properties rather than golden values: a 10Hz tone
