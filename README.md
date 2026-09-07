@@ -1,95 +1,148 @@
 # NeuroPace
 
-Post-surgical patient monitoring from EEG. A synthetic EEG generator feeds a
-multi-output neural network that predicts three things at once from a single
-5-second window of 19-channel EEG: **ailment**, **stress level**, and **mood
-state**. The trained model is served over HTTP and consumed by a mobile app.
+Post-surgical patient monitoring from EEG. A synthetic signal generator, a
+multi-head neural network that reads one five-second window of 19-channel EEG
+and predicts **ailment**, **stress level**, and **mood state** at once, a
+FastAPI service that serves it, and a mobile client that reads from it.
+
+The EEG is simulated. There is no electrode hardware and no patient data
+anywhere in this project — the generator produces signals whose ground truth is
+known exactly, which is what makes the pipeline measurable.
 
 ```
-ml/  ── trains ──>  api/best_yet.h5  ── serves ──>  api/ (FastAPI)  <── calls ──  app/ (Expo)
+neuropace/  ──trains──▶  artifacts/model.keras  ──serves──▶  api/  ◀──reads──  app/
 ```
 
 ## Layout
 
-| Path | What it is |
-|---|---|
-| `ml/dsc.py` | `EEGDataConfig`, `EEGDataset`, `EEGRecording` — data model and the label sets everything else derives from |
-| `ml/sdg.py` | Synthetic EEG generation, per condition / stress level / mood state |
-| `ml/ma.py` | `build_eeg_model(config, model_type, output_type)` — CNN, LSTM, or hybrid |
-| `ml/pipeline.py` | End-to-end training run: generate → split → build → fit |
-| `ml/pp.py` | Training variant with the augmenting data generator and GPU setup |
-| `ml/experiments/` | XGBoost side-explorations on hand-extracted band-power features |
-| `api/` | FastAPI inference service + the trained weights + Dockerfile |
-| `app/` | Expo / React Native client |
-| `docs/archive/` | Superseded code kept for reference only; not wired into anything |
+| Path | Responsibility | TensorFlow |
+|---|---|---|
+| `neuropace/config.py` | Label vocabulary, bands, electrodes, windowing geometry | no |
+| `neuropace/synthetic.py` | Signal generation per condition, stress level, mood | no |
+| `neuropace/dataset.py` | Recordings, windowing, stratified splits | no |
+| `neuropace/features.py` | Band powers and spectral features | no |
+| `neuropace/baselines.py` | XGBoost reference model | no |
+| `neuropace/data.py` | `tf.data` input pipeline | yes |
+| `neuropace/models.py` | CNN, LSTM, and hybrid architectures | yes |
+| `neuropace/train.py` | Training CLI, seeding, run manifest | yes |
+| `neuropace/evaluate.py` | Per-head metrics and confusion matrices | yes |
+| `api/main.py` | Inference service | lazily |
+| `app/` | Expo client | — |
+
+The TensorFlow-free column is a deliberate boundary, not an accident. Everything
+above the line is array work, so most of the suite runs without importing TF:
+**13 tests in 0.75s**, against 6s for all 36. CI runs the fast job first, so a
+regression in the signal generator reports in seconds instead of waiting on a
+TensorFlow install.
 
 ## The model
 
-`api/best_yet.h5` is the hybrid architecture with `output_type='all'`.
+Three softmax heads on one shared trunk, because the labels are not independent
+— stress and mood both modulate alpha and beta amplitude, so a shared
+representation is the honest framing.
 
-- **Input** `(1250, 19)` — 5 s window at 250 Hz, 19 electrodes
-- **Outputs** three softmax heads:
-  - `ailment_output` (6) — normal, seizure, delayed_recovery, ischemia, hemorrhage, infection
-  - `stress_output` (5) — minimal, mild, moderate, high, severe
-  - `mood_output` (10) — Pain & Discomfort, Anxiety & Fear, … Focused Attention
+- **Input** `(1250, 19)` — 5s at 250Hz across the 10-20 electrode placement
+- **`ailment`** (6) — normal, seizure, delayed_recovery, ischemia, hemorrhage, infection
+- **`stress`** (5) — minimal, mild, moderate, high, severe
+- **`mood`** (10) — Pain & Discomfort, Anxiety & Fear, … Focused Attention
 
-Label lists live in `ml/dsc.py` (`EEGDataConfig` defaults) and are mirrored in
-`api/main.py`. Change one, change the other.
-
-## Running it
-
-### Training
+## Quickstart
 
 ```sh
-cd ml
-pip install -r requirements.txt
-python pipeline.py
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[dev,train,api]"
 ```
 
-The XGBoost experiments import their siblings, so run them as modules from `ml/`:
+Train, evaluate, serve:
 
 ```sh
-python -m experiments.xgb
+.venv/bin/python -m neuropace.train --epochs 50 --recordings-per-condition 50
+.venv/bin/python -m neuropace.evaluate
+.venv/bin/uvicorn api.main:app --port 8080
 ```
 
-### Inference API
+Compare against the classical baseline:
 
 ```sh
-cd api
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8080
+.venv/bin/python -m neuropace.baselines --head ailment
 ```
 
-- `GET /health` → confirms the model loaded and reports the expected input shape
-- `POST /predict/` → `{"data": [[...19 floats...] x 1250]}` returns a label,
-  index, and confidence for each of the three heads
-
-Container:
+Run the client:
 
 ```sh
-docker build -t neuropace-api api/
-docker run -p 8080:8080 neuropace-api
+cd app && npm install && npm start
 ```
 
-### Mobile app
+Every run writes `artifacts/`: the model, a `run.json` manifest recording the
+seed, resolved config, split sizes and library versions, the training history,
+per-head `metrics.json`, and a confusion matrix per head.
+
+## Results
+
+**No trained weights ship with this repository, and this table is empty on
+purpose.**
+
+| Head | Classes | Chance | Accuracy | Macro-F1 |
+|---|---|---|---|---|
+| ailment | 6 | 0.167 | run `neuropace.evaluate` | run `neuropace.evaluate` |
+| stress | 5 | 0.200 | run `neuropace.evaluate` | run `neuropace.evaluate` |
+| mood | 10 | 0.100 | run `neuropace.evaluate` | run `neuropace.evaluate` |
+
+The weights this project used to carry were produced by a training loop that
+was silently broken (below), so any number quoted from them would have been
+fiction. Rather than reprint them or invent replacements, the table names the
+command that fills it. Macro-F1 sits beside accuracy because mood has ten
+classes drawn uniformly at random, where accuracy alone flatters a model that
+has learned nothing but the marginal distribution.
+
+## Engineering notes
+
+**The training loop never trained.** The data generator subclassed
+`keras.utils.Sequence` and implemented:
+
+```python
+def __getitem__(self, idx):
+    return next(iter(self.dataset_tf))
+```
+
+`iter()` builds a fresh iterator on every call, so this returns batch 0 forever
+and ignores `idx` entirely. Measured on a 24-window fixture, the class reported
+6 batches per epoch and yielded **1 distinct batch, covering 4 of 24 windows**;
+at the shipped configuration that is roughly 0.5% of the training set, seen
+repeatedly for every epoch of every run. Two copies of the class existed, in
+separate modules, and they had diverged.
+
+It was deleted rather than repaired: it subclassed `Sequence` but constructed a
+`tf.data.Dataset` internally, so it was a broken wrapper around the mechanism
+that already worked. `neuropace/data.py` returns that dataset directly.
+`tests/test_data.py::test_successive_batches_differ` fails against the old
+implementation and passes against the replacement.
+
+Three more that mattered:
+
+- **The leakage check checked nothing.** `set(train) & set(val) & set(test)` is
+  a three-way intersection — empty almost regardless of whether any pair
+  actually overlaps. Replaced with pairwise disjointness.
+- **The API skewed against training.** Inference applied no normalization while
+  the training pipeline standardized every window, so requests arrived on a
+  scale the model had never seen. The service now standardizes identically.
+- **Labels were duplicated** between the service and the config module, free to
+  drift apart and return confidently mislabelled predictions. They are imported
+  now, and `GET /labels` serves them to the client.
+
+## Tests
 
 ```sh
-cd app
-npm install
-npm start
+.venv/bin/python -m pytest -v          # 36 tests
+.venv/bin/python -m ruff check .
 ```
 
-Currently the stock Expo scaffold — nothing is wired to the API yet. This is the
-main outstanding piece of work.
+The suite pins behaviour to properties rather than golden values: a 10Hz tone
+must land in the alpha band and a 2Hz tone in delta; one epoch must cover every
+window exactly once; the confusion-matrix diagonal must reproduce the reported
+accuracy; the API must answer with and without a model on disk.
 
-## History
+## Design records
 
-This was a hackathon project split across three directories: `NeuroPace/` (all
-the ML work, untracked), `NeuroPace_1/` (a Flask stub plus the git remote and a
-Windows venv committed into it), and `MyHackathonApp/` (an untouched Expo
-scaffold, duplicated inside `NeuroPace_1/`). They are merged here. Dropped along
-the way: the Flask stub, which rendered a template that did not exist and
-duplicated the API's role; `model/eeg-api/`, a second FastAPI copy that loaded a
-weights file (`eeg_mood_model.h5`) that exists nowhere in the project; and
-`model/demo.py`, an unrelated prime-number exercise. The first two are in
-`docs/archive/`.
+`docs/superpowers/specs/` holds the design for this work and
+`docs/superpowers/plans/` the implementation plan it was built from.
